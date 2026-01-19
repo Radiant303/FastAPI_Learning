@@ -1,13 +1,66 @@
 from optparse import Option
 from typing import Optional
 
+from datetime import datetime
 from fastapi import FastAPI,Path,Query,HTTPException,Depends
 from pydantic import BaseModel,Field
-
 from fastapi.responses import HTMLResponse
+from sqlalchemy import DateTime, func, String
 from starlette.responses import FileResponse
-
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
 app = FastAPI()
+
+ASYNC_DATABASE_URL = "mysql+aiomysql://root:123456@localhost:3306/fastapi_test?charset=utf8mb4"
+
+# 创建异步引擎
+async_engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    echo=True,          # 是否打印SQL
+    pool_size=10,       # 连接池大小
+    max_overflow=10     # 最大溢出连接数
+)
+
+class Base(DeclarativeBase):
+    create_time: Mapped[datetime] = mapped_column(
+        DateTime,
+        insert_default=func.now(),
+        default=func.now(),
+        comment="创建时间"
+    )
+
+    update_time: Mapped[datetime] = mapped_column(
+        DateTime,
+        insert_default=func.now(),
+        default=func.now(),
+        onupdate=func.now(),
+        comment="更新时间"
+    )
+
+
+class Book(Base):
+    __tablename__ = "book"
+
+    id:Mapped[int] = mapped_column(primary_key=True,comment="书籍ID")
+    bookname:Mapped[str] = mapped_column(String(255),comment="书籍名称")
+    author:Mapped[str] = mapped_column(String(255),comment="书籍作者")
+    publisher:Mapped[str] = mapped_column(String(255),comment="书籍出版社")
+class User(Base):
+    __tablename__ = "user"
+
+    id:Mapped[int] = mapped_column(primary_key=True,comment="用户ID")
+    username:Mapped[str] = mapped_column(String(255),comment="用户名称")
+    password:Mapped[str] = mapped_column(String(255),comment="用户密码")
+
+async def create_tables():
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+@app.on_event("startup")
+async def startup_event():
+    await create_tables()
+
+
 
 # @app.middleware("http")
 # async def middleware1(request,call_next):
@@ -25,6 +78,11 @@ app = FastAPI()
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+
+
+
 
 #
 # @app.get("/hello/{name}")
@@ -149,21 +207,22 @@ async def root():
 #         raise HTTPException(status_code=404,detail="新闻不存在")
 
 
-async def common_parameters(
-        skip:int = 0,
-        limit:int = 10
-):
-    return {"skip":skip,"limit":limit}
+# async def common_parameters(
+#         skip:int = Query(0,ge=0,le=100),
+#         limit:int = Query(10,ge=0,le=100)
+# ):
+#     return {"skip":skip,"limit":limit}
+#
+# @app.get("/news/news_list")
+# async def get_news_list(commons = Depends(common_parameters)):
+#     return commons
+#
+#
+# @app.get("/user/user_list")
+# async def get_user_list():
+#     return {
+#         "message":"hello"
+#     }
+#
 
-@app.get("/news/news_list")
-async def get_news_list():
-    return {
-        "message":"hello"
-    }
 
-
-@app.get("/user/user_list")
-async def get_user_list():
-    return {
-        "message":"hello"
-    }
