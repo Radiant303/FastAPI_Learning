@@ -97,14 +97,13 @@ async def get_database():
         finally:
             await session.close()
 
-@app.get("/book/count")
-async def get_count(
-        db:AsyncSession = Depends(get_database),
-):
-    result = await db.execute(select((func.count(Book.id))))
-    number = result.scalar()
-    return number
-
+# @app.get("/book/count")
+# async def get_count(
+#         db:AsyncSession = Depends(get_database),
+# ):
+#     result = await db.execute(select((func.count(Book.id))))
+#     number = result.scalar()
+#     return number
 #
 # @app.get("/book/books")
 # async def get_book(
@@ -131,8 +130,6 @@ async def get_count(
 #     result = await db.execute(select(Book).where(Book.author.like(f"%{search}%")))
 #     book = result.scalars().all()
 #     return book
-
-
 #
 # @app.get("/hello/{name}")
 # async def say_hello(name: str):
@@ -273,5 +270,13 @@ async def get_count(
 #         "message":"hello"
 #     }
 #
-
-
+@app.get("/book/book_list")
+async def get_book_list(
+        db:AsyncSession = Depends(get_database),
+        page:int = 1,
+        page_size:int = 10
+):
+    skip = (page - 1) * page_size
+    result = await db.execute(select(Book).offset(skip).limit(page_size))
+    book = result.scalars().all()
+    return book
