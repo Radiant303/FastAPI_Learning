@@ -56,7 +56,7 @@ async def create_tables():
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-@app.on_event("startup")
+@app.on_event("startup") #启动时执行
 async def startup_event():
     await create_tables()
 
@@ -95,7 +95,7 @@ async def get_database():
             await session.rollback() #异常回滚
             raise
         finally:
-            await session.close()
+            await session.close() #关闭会话
 
 # @app.get("/book/count")
 # async def get_count(
@@ -251,8 +251,6 @@ async def get_database():
 #         }
 #     else:
 #         raise HTTPException(status_code=404,detail="新闻不存在")
-
-
 # async def common_parameters(
 #         skip:int = Query(0,ge=0,le=100),
 #         limit:int = Query(10,ge=0,le=100)
@@ -270,13 +268,62 @@ async def get_database():
 #         "message":"hello"
 #     }
 #
-@app.get("/book/book_list")
-async def get_book_list(
-        db:AsyncSession = Depends(get_database),
-        page:int = 1,
-        page_size:int = 10
+# @app.get("/book/book_list")
+# async def get_book_list(
+#         db:AsyncSession = Depends(get_database),
+#         page:int = 1,
+#         page_size:int = 10
+# ):
+#     skip = (page - 1) * page_size
+#     result = await db.execute(select(Book).offset(skip).limit(page_size))
+#     book = result.scalars().all()
+#     return book
+#
+# class Book(BaseModel):
+#     name:str = Field(...,min_length=2,max_length=20)
+#     author:Optional[str] = Field(None,min_length=2,max_length=20)
+#     publisher:str = Field("黑马出版社")
+#
+# @app.post("/book/add")
+# async def add_book(
+#         book:Book,
+#         db:AsyncSession = Depends(get_database)
+# ):
+#     book_obj = Book(**book.__dict__)
+#     db.add(book_obj)
+#     await db.commit()
+#     return book_obj
+#
+# class BookUpdata(BaseModel):
+#     id:int = Field(...,gt=0)
+#     name:str = Field(...,min_length=2,max_length=20)
+#     author:Optional[str] = Field(None,min_length=2,max_length=20)
+#     publisher:str = Field("黑马出版社")
+#
+# @app.put("/book/update")
+# async def update_book(
+#         id:int,
+#         book:BookUpdata,
+#         db:AsyncSession = Depends(get_database)
+# ):
+#     db_book = await db.get(Book,id)
+#     if db_book is None:
+#         raise HTTPException(status_code=404,detail="书籍不存在")
+#     db_book.name = book.name
+#     db_book.author = book.author
+#     db_book.publisher = book.publisher
+#     await db.commit()
+#     return db_book
+
+
+@app.delete("/book/delete")
+async def delete_book(
+        id:int,
+        db:AsyncSession = Depends(get_database)
 ):
-    skip = (page - 1) * page_size
-    result = await db.execute(select(Book).offset(skip).limit(page_size))
-    book = result.scalars().all()
-    return book
+    db_book = await db.get(Book,id)
+    if db_book is None:
+        raise HTTPException(status_code=404,detail="书籍不存在")
+    await db.delete(db_book)
+    await db.commit()
+    return {"message":"删除成功"}
