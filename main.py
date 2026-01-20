@@ -5,9 +5,9 @@ from datetime import datetime
 from fastapi import FastAPI,Path,Query,HTTPException,Depends
 from pydantic import BaseModel,Field
 from fastapi.responses import HTMLResponse
-from sqlalchemy import DateTime, func, String
+from sqlalchemy import DateTime, func, String, select
 from starlette.responses import FileResponse
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
 app = FastAPI()
 
@@ -80,8 +80,57 @@ async def root():
     return {"message": "Hello World"}
 
 
+AsyncSessionMaker = async_sessionmaker(
+    bind=async_engine,  # 绑定引擎
+    class_=AsyncSession,
+    expire_on_commit=False # 设置会话不过期
+)
 
+async def get_database():
+    async with AsyncSessionMaker() as session:
+        try:
+            yield session   #返回数据库会话给路由函数
+            await session.commit() #提交事务
+        except Exception:
+            await session.rollback() #异常回滚
+            raise
+        finally:
+            await session.close()
 
+@app.get("/book/count")
+async def get_count(
+        db:AsyncSession = Depends(get_database),
+):
+    result = await db.execute(select((func.count(Book.id))))
+    number = result.scalar()
+    return number
+
+#
+# @app.get("/book/books")
+# async def get_book(
+#         db:AsyncSession = Depends(get_database)
+# ):
+#     #result = await db.execute(select(Book))
+#     #book = result.scalars().all()  # 返回所有结果
+#     #book = result.scalars().first()
+#     book = await db.get( Book, 1)  #根据主键来获取
+#     return book
+#
+# @app.get("/book/books{id}")
+# async def get_book(id: int = Path(..., gt=0, le=100),db:AsyncSession = Depends(get_database)):
+#    result = await db.execute(select(Book).where(Book.id == id))
+#    book = result.scalar_one_or_none()
+#    return  book
+#
+# @app.post("/book/authors")
+# async def get_search_book(
+#         db:AsyncSession = Depends(get_database),
+#         search:str = Query(None,min_length=0,max_length=255)
+# ):
+#
+#     result = await db.execute(select(Book).where(Book.author.like(f"%{search}%")))
+#     book = result.scalars().all()
+#     return book
 
 
 #
